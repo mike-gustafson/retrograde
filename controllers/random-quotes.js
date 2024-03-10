@@ -6,7 +6,6 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 
-
 router.get('/', async (req, res) => {
     const filePath = path.join('__dirname ', '..', 'data', 'quotes.json');
     let quotes = await fs.readFile(filePath, 'utf-8', (err, data) => {
