@@ -1,0 +1,35 @@
+<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+  <a class="navbar-brand" href="/">Retrograde</a>
+  <button id="toggleSecondary" class="navbar-toggler" type="button" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  
+  <div class="collapse navbar-collapse" id="secondary-links">
+    <ul class="navbar-nav ml-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="/profile">Profile</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/platforms">Platforms</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/games">Games</a>
+      </li>
+    </ul>
+  </div>
+
+  
+  <%- include('./alerts') %>
+    <% if (!currentUser) {%>
+      <div class="m-2"><a href="/auth/login">Login</a></div>||
+      <div class="m-2"><a href="/auth/signup">Signup</a></div>
+      <% } else { %>
+        <div class="m-2"><a href="/auth/logout">Logout</a></div>
+        <% } %>
+
+</nav>
+<script>
+  document.getElementById('toggleSecondary').addEventListener('click', function() {
+    document.getElementById('secondary-links').classList.toggle('collapse');
+  });
+</script>

@@ -1,0 +1,169 @@
+
+
+<div class="card p-0 text-white">
+  <section class="p-1">
+    <h1>Games for <%= platform.name %> (<%= games.length %> games)</h1>
+  </section>
+</div>
+
+<div style="overflow-y: auto; max-height: 75vh;">
+  <div class="card p-1 text-white">
+    <section>
+      <div class="table-responsive">
+        <table class="table-dark table-bordered" style="width: 100%;">
+          <thead>
+            <tr>
+              <th style="text-align:center">Name</th>
+              <th style="text-align:center">Copies Owned</th>
+              <th style="text-align:center">Wishlist</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% games.forEach(game => { %>
+              <tr style="border-bottom: 1px solid aqua;" id="<%= game.id %>">
+                <td>
+                  <a href="/games/byId/<%= game.id %>/?_method=PUT" method="POST">
+                    <%= game.name %>
+                  </a>
+                </td>
+                <td id="copies-owned-<%=platform.id%>-<%=game.id%>" style="text-align:center">
+                  <% if (user && user.games_owned && user.games_owned[platform.id] && user.games_owned[platform.id].includes(game.id)) { %>
+                    <% let copyCount = user.games_owned[platform.id].filter(id => id === game.id).length %>
+                    <%= copyCount %> owned 
+                    <button class="p-0" onclick="addToCollection(<%= user.id %>, <%= game.id %>, <%= platform.id %>, <%= copyCount %>)">+1</button>
+                    <button class="p-0" onclick="removeFromCollection(<%= user.id %>, <%= game.id %>, <%= platform.id %>, <%= copyCount %>)">-1</button>
+                  <% } else { %>
+                    <button class="p-0" onclick="addToCollection(<%= user.id %>, <%= game.id %>, <%= platform.id %>, 0)">Add to Collection</button>
+                  <% } %>
+                </td>
+                <td style="text-align:center">
+                  <% if (user && user.games_wishlist && user.games_wishlist[platform.id] && user.games_wishlist[platform.id].includes(game.id)) { %>
+                    <button id="wishlist-button-<%= game.id %>" onclick="removeFromWishlist(<%= user.id %>, <%= game.id %>, <%= platform.id %>)">Remove Wishlist</button>
+                  <% } else { %>
+                    <button id="wishlist-button-<%= game.id %>" onclick="addToWishlist(<%= user.id %>, <%= game.id %>, <%= platform.id %>)">Add to Wishlist</button>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+
+<script>
+  async function addToCollection(userId, gameId, platformId, copyCount) {
+  try {
+    const response = await fetch('/games/add-to-collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, gameId, platformId }),
+    });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    copyCount++;
+    const data = await response.json();
+    console.log('Game added to collection:', data);
+    updateCopiesOwnedCell(userId, platformId, gameId, copyCount);
+
+  } catch (error) {
+    console.error('There was a problem with the fetch operation:', error);
+  }
+}
+
+async function removeFromCollection(userId, gameId, platformId, copyCount) {
+  try {
+    const response = await fetch('/games/remove-from-collection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, gameId, platformId }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    copyCount--;
+    const data = await response.json();
+    console.log(data.message);
+
+    updateCopiesOwnedCell(userId, platformId, gameId, copyCount);
+  } catch (error) {
+    console.error('There was a problem with the fetch operation:', error);
+  }
+}
+
+function updateCopiesOwnedCell(userId, platformId, gameId, copyCount) {
+  const cellId = `copies-owned-${platformId}-${gameId}`;
+  const cell = document.getElementById(cellId);
+
+  if (cell) {
+    if (copyCount === 0) {
+      cell.innerHTML = `<button onclick="addToCollection(${userId}, ${gameId}, ${platformId}, ${copyCount})">Add to Collection</button>`;
+    } else {          
+      cell.innerHTML = `${copyCount} owned <button onclick="addToCollection(${userId}, ${gameId}, ${platformId}, ${copyCount})">+1</button>
+                  <button onclick="removeFromCollection(${userId}, ${gameId}, ${platformId}, ${copyCount})">-1</button>`
+    }
+  }
+}
+
+  async function addToWishlist(userId, gameId, platformId) {
+    try {
+      const response = await fetch('/games/add-to-wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, gameId, platformId }),
+      }); 
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      console.log('Game added to wishlist:', data);
+      updateWishlistButton(userId, gameId, platformId, true);
+
+    } catch (error) {
+      console.error('There was a problem with the fetch operation:', error);
+    }
+  }
+
+  async function removeFromWishlist(userId, gameId, platformId) {
+  try {
+    const response = await fetch('/games/remove-from-wishlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, gameId, platformId }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    const data = await response.json();
+    console.log(data.message);
+    updateWishlistButton(userId, gameId, platformId, false);
+
+  } catch (error) {
+    console.error('There was a problem with the fetch operation:', error);
+  }
+}
+
+
+  function updateWishlistButton(userId, gameId, platformId, inWishlist) {
+    const buttonId = `wishlist-button-${gameId}`;
+    const button = document.getElementById(buttonId);
+
+    if (button) {
+      if (inWishlist) {
+        button.innerHTML = 'Remove Wishlist';
+        button.onclick = () => removeFromWishlist(userId, gameId, platformId);
+      } else {
+        button.innerHTML = 'Add to Wishlist';
+        button.onclick = () => addToWishlist(userId, gameId, platformId);
+      }
+    }
+  }
+</script>
