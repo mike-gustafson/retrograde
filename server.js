@@ -1,16 +1,18 @@
 require('dotenv').config();
 
+var sanitizeString = require('./utils/sanitize-string').sanitizeString;
+
 const express = require('express');
 const flash = require('connect-flash');
 const session = require('express-session');
 const layouts = require('express-ejs-layouts');
 const methodOverride = require('method-override')
-const axios = require('axios');
 
+const axios = require('axios');
 const app = express();
 const path = require('path');
 const passport = require('./config/ppConfig');
-const { Game, Platform, PlatformLogo, User } = require('./models');
+const { Game, Platform, PlatformLogo} = require('./models');
 const headers = {
   'Accept': process.env.HEADER_ACCEPT,
   'Client-ID': process.env.HEADER_CLIENT_ID,
@@ -56,18 +58,7 @@ app.use('/auth', require('./controllers/auth'));
 app.get('/', async (req, res) => {
   const platforms = await Platform.findAll();
   res.render('homepage', { platforms });
-})
-//-------------------------------------------------------------------------------------------------
-
-function sanitizeTitle(title) {
-  if (title) {
-    console.log(title.replace(/[^\x00-\x7F]/g, '')) // This regex removes non-ASCII characters
-    return title.replace(/[^\x00-\x7F]/g, ''); // This regex removes non-ASCII characters
-  } else {
-    title = 'unknown';
-    return title
-  }
-}
+});
 
 async function fetchAndUpdateGames(offset) {
   try {
@@ -77,26 +68,20 @@ async function fetchAndUpdateGames(offset) {
       'https://api.igdb.com/v4/games',
       data,
       {
-        headers: {
-          'Accept': 'application/json',
-          'Client-ID': 'mtos002sejiyk8rra7wr9i0cjeq4fk',
-          'Authorization': 'Bearer k54046h0mmd74wexbb3r2kmr6aatah',
-        },
+        headers: headers,
       }
     );
-
     const gamesData = response.data;
-
     if (gamesData.length === 0) {
-      console.log('No more data to fetch.');
+      console.log('No more games to fetch.');
       return;
     }
     const sanitizedGamesData = gamesData.map(game => ({
       ...game,
-      name: sanitizeTitle(game.name),
-      summary: sanitizeTitle(game.summary),
-      slug: sanitizeTitle(game.slug),
-      version_title: sanitizeTitle(game.version_title),
+      name: sanitizeString(game.name),
+      summary: sanitizeString(game.summary),
+      slug: sanitizeString(game.slug),
+      version_title: sanitizeString(game.version_title),
     }));
     await Game.bulkCreate(sanitizedGamesData);
     setTimeout(async () => {
@@ -107,32 +92,14 @@ async function fetchAndUpdateGames(offset) {
   } 
 }
 
-app.get('/updateGames', async (req, res) => {
+async function fetchAndUpdatePlatformLogos(offset) {
   try {
-    // Start the process with offset 0
-    await fetchAndUpdateGames(0);
-
-    res.status(200).json({ message: 'Data update complete.' });
-  } catch (error) {
-    console.error('Error updating games:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-//------------------------ end update game data
-//------------------------ update platform logos
-async function fetchAndUpdatePlatformLogos() {
-  try {
-    let data = `fields *;limit 500;sort id asc;`;
-
+    let data = `fields *;limit ${offset};sort id asc;`;
     const response = await axios.post(
       'https://api.igdb.com/v4/platform_logos',
       data,
       {
-        headers: {
-          'Accept': 'application/json',
-          'Client-ID': 'mtos002sejiyk8rra7wr9i0cjeq4fk',
-          'Authorization': 'Bearer k54046h0mmd74wexbb3r2kmr6aatah',
-        },
+        headers: headers,
       }
     );
     const platformLogosData = response.data;
@@ -142,9 +109,8 @@ async function fetchAndUpdatePlatformLogos() {
     }
     const sanitizedPlatformLogosData = platformLogosData.map(platformLogo => ({
       ...platformLogo,
-      url: sanitizeTitle(platformLogo.url),
+      url: sanitizeString(platformLogo.url),
     }));
-    
     await PlatformLogo.bulkCreate(sanitizedPlatformLogosData);
     setTimeout(async () => {
       await fetchAndUpdatePlatformLogos();
@@ -154,25 +120,42 @@ async function fetchAndUpdatePlatformLogos() {
   }
 }
 
-app.get('/updatePlatforms', async (req, res) => {
+async function fetchAndUpdatePlatforms(offset) {
   try {
-    let data = `fields *;limit 500;sort id asc;`;
-
+    let data = `fields *;limit ${offset};sort id asc;`;
     const response = await axios.post('https://api.igdb.com/v4/platforms', data, { headers: headers });
-console.log(response.data)
     const platformsData = response.data;
-    if (platformsData.length ===0) {
+    if (platformsData.length === 0) {
       console.log('No more platforms to fetch.');
-      return res.status(200).json({ message: 'No more platforms to fetch.' });
+      return;
     }
-
     const sanitizedPlatformsData = platformsData.map(platform => ({
       ...platform,
-      summary: sanitizeTitle(platform.summary),
+      summary: sanitizeString(platform.summary),
       platformLogo: platform.platform_logo,
     }));
-
     await Platform.bulkCreate(sanitizedPlatformsData);
+    setTimeout(async () => {
+      await fetchAndUpdatePlatforms(offset + 500);
+    }, 5000);
+  } catch (error) {
+    console.error('Error fetching and updating platforms:', error);
+  }
+}
+
+app.get('/updateGames', async (req, res) => {
+  try {
+    await fetchAndUpdateGames(0);
+    res.status(200).json({ message: 'Data update complete.' });
+  } catch (error) {
+    console.error('Error updating games:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/updatePlatforms', async (req, res) => {
+  try {
+    await fetchAndUpdatePlatforms(0);
     res.status(200).json({ message: 'Platform update complete.' });
   } catch (error) {
     console.error('Error updating platforms:', error);
@@ -182,13 +165,14 @@ console.log(response.data)
 
 app.get('/updatePlatformLogos', async (req, res) => {
   try {
-    await fetchAndUpdatePlatformLogos();
+    await fetchAndUpdatePlatformLogos(0);
     res.status(200).json({ message: 'Platform logo update complete.' });
   } catch (error) {
     console.error('Error updating platform logos:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 //---------------------------------------------------------------------------------------------------------
 const PORT = process.env.PORT;
 const server = app.listen(PORT, () => {
