@@ -22,9 +22,11 @@ router.get("/", async (req, res) => {
       where: { category: [1, 5], },
     })
     const platformIds = platforms.map((platform) => platform.id);
-    const games = await Game.findAll({
+    let games = await Game.findAll({
       where: { platforms: { [Op.overlap]: platformIds, } },
     });
+    const sortedGames = sortData(games, 'alphaUp');
+    games = sortedGames;
     res.render("games/index", { games });
   } catch (err) {
     console.error(err);
@@ -42,7 +44,6 @@ router.get('/byId/:gameId', async (req, res) => {
       body: gameRaw,
     });
     const game = await gameData.json();
-
     const coverRaw = `fields *; \r\nwhere id = ${game[0].cover};`;
     const cover = await fetch("https://api.igdb.com/v4/covers", {
       method: 'post',
@@ -85,7 +86,6 @@ router.post('/add-to-collection', async (req, res) => {
 // POST /games/remove-from-collection - fetch a single game by ID and remove it from the user's collection
 router.post('/remove-from-collection', async (req, res) => {
   const { userId, gameId, platformId } = req.body;
-  console.log(req.body.userId, 'userId', req.body.gameId, 'gameId', req.body.platformId, 'platformId');
   try {
     let user = await User.findOne({ where: { id: userId } });
     if (user.games_owned && user.games_owned[platformId]) {

@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const passport = require('../config/ppConfig');
-
-// import models
 const { User } = require('../models');
 
 router.get("/signup", (req, res) => {
@@ -37,7 +35,6 @@ router.post('/signup', async (req, res) => {
         where: { email },
         defaults: { name, password }
     });
-
     if (created) {
         const successObject = {
             successRedirect: '/',
