@@ -22,11 +22,21 @@ router.get("/", async (req, res) => {
       where: { category: [1, 5], },
     })
     const platformIds = platforms.map((platform) => platform.id);
-    let games = await Game.findAll({
+    const gamesRaw = await Game.findAll({
       where: { platforms: { [Op.overlap]: platformIds, } },
     });
-    const sortedGames = sortData(games, 'alphaUp');
-    games = sortedGames;
+
+    const gamesUnsorted = [];
+    const addedIds = new Set();
+    gamesRaw.forEach((game) => {
+      if (!addedIds.has(game.id)) {
+        addedIds.add(game.id);
+        gamesUnsorted.push(game);
+      }
+    });
+    
+    const games = sortData(gamesUnsorted, 'alphaUp');
+    
     res.render("games/index", { games });
   } catch (err) {
     console.error(err);
