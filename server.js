@@ -11,7 +11,7 @@ const methodOverride = require('method-override')
 
 const app = express();
 const path = require('path');
-const passport = require('./config/ppConfig');
+// const passport = require('./config/ppConfig');
 
 app.use(layouts);
 app.use(flash());
